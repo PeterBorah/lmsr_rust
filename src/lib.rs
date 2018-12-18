@@ -14,18 +14,23 @@ pub struct Trade {
     pub shares: f64
 }
 
-pub fn cost_fn(market: Market) -> f64 {
-    let b = market.b;
-    let sum_of_exp = market.outstanding_shares.iter().fold(0_f64, |acc, x| acc + E.pow(x / b));
-
-    b * sum_of_exp.ln()
+pub fn cost_fn(market: &Market) -> f64 {
+    market.b * sum_of_exp(market).ln()
 }
 
-pub fn cost_to_trade(market: Market, trade: Trade) -> f64 {
+fn sum_of_exp(market: &Market) -> f64 {
+    market.outstanding_shares.iter().fold(0_f64, |acc, x| acc + E.pow(x / market.b))
+}
+
+pub fn cost_to_trade(market: &Market, trade: &Trade) -> f64 {
     let mut new_market = market.clone();
     new_market.outstanding_shares[trade.outcome_id] += trade.shares;
 
-    cost_fn(new_market) - cost_fn(market)
+    cost_fn(&new_market) - cost_fn(market)
+}
+
+pub fn price(market: &Market, idx: usize) -> f64 {
+    E.pow(market.outstanding_shares[idx] / market.b) / sum_of_exp(market)
 }
 
 #[cfg(test)]
@@ -74,7 +79,7 @@ mod tests {
 
         let market = Market { b, outstanding_shares };
 
-        let result = cost_fn(market);
+        let result = cost_fn(&market);
         let expected = 74.439666_f64;
 
         assert!((expected - result).abs() < 0.0001, "Got {}, expected {}", result, expected);
@@ -95,9 +100,36 @@ mod tests {
         let market = Market { b, outstanding_shares };
         let trade = Trade { outcome_id: 0, shares: 10.0 };
 
-        let result = cost_to_trade(market, trade);
+        let result = cost_to_trade(&market, &trade);
         let expected = 5.12;
 
         assert!((expected - result).abs() < 0.01, "Got {}, expected {}", result, expected);
+    }
+
+    #[test]
+    fn price_works() {
+        let b = 100_f64;
+        let outstanding_shares = vec!(0_f64, 0_f64);
+
+        let market = Market { b, outstanding_shares };
+
+        let price_0 = price(&market, 0);
+        let price_1 = price(&market, 1);
+
+        assert!((price_0 - 0.5).abs() < 0.0001);
+        assert!((price_1 - 0.5).abs() < 0.0001);
+    }
+
+    #[test]
+    fn price_sums_to_1() {
+        let b = 100_f64;
+        let outstanding_shares = vec!(44_f64, 17_f64);
+
+        let market = Market { b, outstanding_shares };
+
+        let price_0 = price(&market, 0);
+        let price_1 = price(&market, 1);
+
+        assert!(((price_0 + price_1) - 1.0).abs() < 0.0001, "Inconsistent prices: {}, {}", price_0, price_1);
     }
 }
