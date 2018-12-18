@@ -5,11 +5,14 @@ use rug::ops::Pow;
 
 pub struct Market {
     pub b: f64,
-    pub outstanding_shares: (f64, f64),
+    pub outstanding_shares: Vec<f64>,
 }
 
 pub fn cost_fn(market: Market) -> f64 {
-    market.b * ((E.pow(market.outstanding_shares.0 / market.b) + E.pow(market.outstanding_shares.1 / market.b)).ln())
+    let b = market.b;
+    let sum_of_exp = market.outstanding_shares.iter().fold(0_f64, |acc, x| acc + E.pow(x / b));
+
+    b * sum_of_exp.ln()
 }
 
 #[cfg(test)]
@@ -54,13 +57,19 @@ mod tests {
     #[test]
     fn cost_fn_works() {
         let b = 100_f64;
-        let outstanding_shares = (10_f64, 0_f64);
+        let outstanding_shares = vec!(10_f64, 0_f64);
 
         let market = Market { b, outstanding_shares };
 
         let result = cost_fn(market);
         let expected = 74.439666_f64;
 
-        assert!((expected - result).abs() < 0.0001);
+        assert!((expected - result).abs() < 0.0001, "Got {}, expected {}", result, expected);
+    }
+
+    #[test]
+    #[ignore]
+    fn cost_fn_works_with_more_than_two_options() {
+        unimplemented!();
     }
 }
