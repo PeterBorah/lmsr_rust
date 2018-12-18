@@ -3,9 +3,15 @@ use std::f64::consts::E;
 
 use rug::ops::Pow;
 
+#[derive(Clone)]
 pub struct Market {
     pub b: f64,
     pub outstanding_shares: Vec<f64>,
+}
+
+pub struct Trade {
+    pub outcome_id: usize,
+    pub shares: f64
 }
 
 pub fn cost_fn(market: Market) -> f64 {
@@ -13,6 +19,13 @@ pub fn cost_fn(market: Market) -> f64 {
     let sum_of_exp = market.outstanding_shares.iter().fold(0_f64, |acc, x| acc + E.pow(x / b));
 
     b * sum_of_exp.ln()
+}
+
+pub fn cost_to_trade(market: Market, trade: Trade) -> f64 {
+    let mut new_market = market.clone();
+    new_market.outstanding_shares[trade.outcome_id] += trade.shares;
+
+    cost_fn(new_market) - cost_fn(market)
 }
 
 #[cfg(test)]
@@ -70,6 +83,21 @@ mod tests {
     #[test]
     #[ignore]
     fn cost_fn_works_with_more_than_two_options() {
+        // TODO
         unimplemented!();
+    }
+
+    #[test]
+    fn cost_to_trade_works() {
+        let b = 100_f64;
+        let outstanding_shares = vec!(0_f64, 0_f64);
+
+        let market = Market { b, outstanding_shares };
+        let trade = Trade { outcome_id: 0, shares: 10.0 };
+
+        let result = cost_to_trade(market, trade);
+        let expected = 5.12;
+
+        assert!((expected - result).abs() < 0.01, "Got {}, expected {}", result, expected);
     }
 }
