@@ -1,0 +1,7 @@
+[package]
+name = "lmsr_rust"
+version = "0.1.0"
+authors = ["Peter Borah <peterborah@gmail.com>"]
+
+[dependencies]
+rug = "1.2.2"
