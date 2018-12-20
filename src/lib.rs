@@ -39,23 +39,7 @@ mod tests {
 
     use std::f64;
 
-    use rug::Float;
     use rug::ops::Pow;
-
-    #[test]
-    fn rug_works() {
-        let f = Float::with_val(53, 1.5);
-        let expected: f32 = 1.5;
-        assert!((f - expected).abs() < 0.0001);
-    }
-
-    #[test]
-    fn ln_works() {
-        let f = Float::with_val(53, 1.5);
-        let expected = 0.4055_f64;
-        let result = f.ln();
-        assert!((expected - result).abs() < 0.0001);
-    }
 
     #[test]
     fn e_works() {
