@@ -2,7 +2,6 @@ extern crate rug;
 
 use std::f64::consts::E;
 use std::collections::HashMap;
-use std::error::Error;
 
 use rug::ops::Pow;
 
@@ -90,6 +89,15 @@ impl Market {
                     return;
                 }
             }
+        }
+    }
+
+    pub fn trade_with_max_price(&mut self, address: String, outcome_id: usize, shares: f64, max_price: f64) {
+        let shares_to_max = self.market_maker.shares_to_set_price(outcome_id, max_price);
+        if shares_to_max < shares {
+            self.trade(address, outcome_id, shares_to_max);
+        } else {
+            self.trade(address, outcome_id, shares);
         }
     }
 }
@@ -262,5 +270,43 @@ mod tests {
 
         let final_collateral = portfolio.collateral;
         assert_within_epsilon(final_collateral, 4.0);
+    }
+
+    #[test]
+    fn orders_with_max_price_work() {
+        let mut market = Market::new(100.0, 2);
+        let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
+        let shares = 1000.0;
+        let max_price = 0.6;
+        let outcome_id = 0;
+
+        market.add_collateral(String::from(address), 10000.0);
+        market.trade_with_max_price(String::from(address), outcome_id, shares, max_price);
+
+        let price = market.market_maker.price(outcome_id);
+        assert_within_epsilon(price, max_price);
+
+        let portfolio = &market.portfolios[&String::from(address)];
+        let shares_bought = portfolio.outcome_shares[outcome_id];
+        assert!(shares_bought < shares);
+    }
+
+    #[test]
+    fn orders_with_max_price_work_if_max_price_not_hit() {
+        let mut market = Market::new(100.0, 2);
+        let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
+        let shares = 1.0;
+        let max_price = 0.9;
+        let outcome_id = 0;
+
+        market.add_collateral(String::from(address), 10000.0);
+        market.trade_with_max_price(String::from(address), outcome_id, shares, max_price);
+
+        let price = market.market_maker.price(outcome_id);
+        assert!(price < max_price);
+
+        let portfolio = &market.portfolios[&String::from(address)];
+        let shares_bought = portfolio.outcome_shares[outcome_id];
+        assert_within_epsilon(shares_bought, shares);
     }
 }
