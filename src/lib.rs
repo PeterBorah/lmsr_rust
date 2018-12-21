@@ -1,7 +1,7 @@
 extern crate rug;
 
-use std::f64::consts::E;
 use std::collections::HashMap;
+use std::f64::consts::E;
 
 use rug::ops::Pow;
 
@@ -15,7 +15,10 @@ impl MarketMaker {
     pub fn new(b: f64, num_outcomes: usize) -> MarketMaker {
         let outstanding_shares = vec![0_f64; num_outcomes];
 
-        MarketMaker { b, outstanding_shares }
+        MarketMaker {
+            b,
+            outstanding_shares,
+        }
     }
 
     pub fn cost_fn(&self) -> f64 {
@@ -24,7 +27,9 @@ impl MarketMaker {
 
     // Calculates exp(q1/b) for each outcome and sums
     fn sum_of_exp(&self) -> f64 {
-        self.outstanding_shares.iter().fold(0_f64, |acc, q| acc + E.pow(q / self.b))
+        self.outstanding_shares
+            .iter()
+            .fold(0_f64, |acc, q| acc + E.pow(q / self.b))
     }
 
     pub fn cost_to_trade(&self, outcome_id: usize, shares: f64) -> f64 {
@@ -40,7 +45,8 @@ impl MarketMaker {
 
     pub fn shares_to_set_price(&self, outcome_id: usize, new_price: f64) -> f64 {
         let current_price = self.price(outcome_id);
-        self.b * ((new_price / current_price).ln() - ((1.0 - new_price) / (1.0 - current_price)).ln())
+        self.b
+            * ((new_price / current_price).ln() - ((1.0 - new_price) / (1.0 - current_price)).ln())
     }
 
     pub fn trade(&mut self, outcome_id: usize, shares: f64) {
@@ -64,13 +70,17 @@ impl Market {
         let market_maker = MarketMaker::new(b, num_outcomes);
         let portfolios = HashMap::new();
 
-        Market { market_maker, portfolios, num_outcomes }
+        Market {
+            market_maker,
+            portfolios,
+            num_outcomes,
+        }
     }
 
     pub fn add_collateral(&mut self, address: String, amount: f64) {
         let portfolio = self.portfolios.entry(address).or_insert(Portfolio {
             outcome_shares: vec![0.0; self.num_outcomes],
-            collateral: 0.0
+            collateral: 0.0,
         });
 
         portfolio.collateral += amount;
@@ -92,8 +102,16 @@ impl Market {
         }
     }
 
-    pub fn buy_with_max_price(&mut self, address: String, outcome_id: usize, shares: f64, max_price: f64) {
-        if shares < 0.0 { return };
+    pub fn buy_with_max_price(
+        &mut self,
+        address: String,
+        outcome_id: usize,
+        shares: f64,
+        max_price: f64,
+    ) {
+        if shares < 0.0 {
+            return;
+        };
 
         let shares_to_max = self.market_maker.shares_to_set_price(outcome_id, max_price);
         if shares_to_max < shares {
@@ -113,7 +131,12 @@ mod tests {
     use rug::ops::Pow;
 
     fn assert_within_epsilon(x: f64, y: f64) {
-        assert!((x - y).abs() < 0.0001, "{} and {} aren't within epsilon", x, y);
+        assert!(
+            (x - y).abs() < 0.0001,
+            "{} and {} aren't within epsilon",
+            x,
+            y
+        );
     }
 
     #[test]
@@ -134,9 +157,12 @@ mod tests {
     #[test]
     fn cost_fn_works() {
         let b = 100_f64;
-        let outstanding_shares = vec!(10_f64, 0_f64);
+        let outstanding_shares = vec![10_f64, 0_f64];
 
-        let market_maker = MarketMaker { b, outstanding_shares };
+        let market_maker = MarketMaker {
+            b,
+            outstanding_shares,
+        };
 
         let result = market_maker.cost_fn();
         let expected = 74.439666_f64;
@@ -175,9 +201,12 @@ mod tests {
     #[test]
     fn price_sums_to_1() {
         let b = 100_f64;
-        let outstanding_shares = vec!(44_f64, 17_f64);
+        let outstanding_shares = vec![44_f64, 17_f64];
 
-        let market_maker = MarketMaker { b, outstanding_shares };
+        let market_maker = MarketMaker {
+            b,
+            outstanding_shares,
+        };
 
         let price_0 = market_maker.price(0);
         let price_1 = market_maker.price(1);
@@ -191,17 +220,22 @@ mod tests {
         let shares_0 = 40_f64;
         let shares_1 = 12_f64;
 
-        let outstanding_shares = vec!(shares_0, shares_1);
-        let market_maker = MarketMaker { b, outstanding_shares };
+        let outstanding_shares = vec![shares_0, shares_1];
+        let market_maker = MarketMaker {
+            b,
+            outstanding_shares,
+        };
 
         let target = 0.6_f64;
         let outcome_id = 1;
 
         let shares_to_buy = market_maker.shares_to_set_price(outcome_id, target);
 
-
-        let outstanding_shares = vec!(shares_0, shares_1 + shares_to_buy);
-        let market_maker = MarketMaker { b, outstanding_shares };
+        let outstanding_shares = vec![shares_0, shares_1 + shares_to_buy];
+        let market_maker = MarketMaker {
+            b,
+            outstanding_shares,
+        };
 
         let result = market_maker.price(outcome_id);
 
