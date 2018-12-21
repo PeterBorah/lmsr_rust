@@ -26,13 +26,20 @@ impl Market {
         new_market.cost_fn() - self.cost_fn()
     }
 
-    pub fn price(&self, idx: usize) -> f64 {
-        E.pow(self.outstanding_shares[idx] / self.b) / self.sum_of_exp()
+    pub fn price(&self, outcome_id: usize) -> f64 {
+        E.pow(self.outstanding_shares[outcome_id] / self.b) / self.sum_of_exp()
     }
 
-    pub fn shares_to_set_price(&self, idx: usize, new_price: f64) -> f64 {
-        let current_price = self.price(idx);
+    pub fn shares_to_set_price(&self, outcome_id: usize, new_price: f64) -> f64 {
+        let current_price = self.price(outcome_id);
         self.b * ((new_price / current_price).ln() - ((1.0 - new_price) / (1.0 - current_price)).ln())
+    }
+
+    pub fn trade(self, outcome_id: usize, shares: f64) -> Market {
+        let mut new_market = self.clone();
+        new_market.outstanding_shares[outcome_id] += shares;
+
+        new_market
     }
 }
 
@@ -144,5 +151,19 @@ mod tests {
         let result = market.price(outcome_id);
 
         assert_within_epsilon(target, result);
+    }
+
+    #[test]
+    fn trade_works() {
+        let b = 100_f64;
+        let outstanding_shares = vec!(0_f64, 0_f64);
+        let trade_size = 10.0;
+
+        let market = Market { b, outstanding_shares };
+        let market = market.trade(0, trade_size);
+
+        let result = market.outstanding_shares[0];
+
+        assert_within_epsilon(result, trade_size);
     }
 }
