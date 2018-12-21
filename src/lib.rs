@@ -2,6 +2,7 @@ extern crate rug;
 
 use std::f64::consts::E;
 use std::collections::HashMap;
+use std::error::Error;
 
 use rug::ops::Pow;
 
@@ -43,22 +44,54 @@ impl MarketMaker {
         self.b * ((new_price / current_price).ln() - ((1.0 - new_price) / (1.0 - current_price)).ln())
     }
 
-    pub fn trade(self, outcome_id: usize, shares: f64) -> MarketMaker {
-        let mut new_market_maker = self.clone();
-        new_market_maker.outstanding_shares[outcome_id] += shares;
-
-        new_market_maker
+    pub fn trade(&mut self, outcome_id: usize, shares: f64) {
+        self.outstanding_shares[outcome_id] += shares;
     }
 }
 
 pub struct Portfolio {
-    pub outcome_tokens: Vec<f64>,
+    pub outcome_shares: Vec<f64>,
     pub collateral: f64,
 }
 
 pub struct Market {
-    market_maker: MarketMaker,
-    portfolios: HashMap<String, Portfolio>,
+    pub market_maker: MarketMaker,
+    pub portfolios: HashMap<String, Portfolio>,
+    pub num_outcomes: usize,
+}
+
+impl Market {
+    pub fn new(b: f64, num_outcomes: usize) -> Market {
+        let market_maker = MarketMaker::new(b, num_outcomes);
+        let portfolios = HashMap::new();
+
+        Market { market_maker, portfolios, num_outcomes }
+    }
+
+    pub fn add_collateral(&mut self, address: String, amount: f64) {
+        let portfolio = self.portfolios.entry(address).or_insert(Portfolio {
+            outcome_shares: vec![0.0; self.num_outcomes],
+            collateral: 0.0
+        });
+
+        portfolio.collateral += amount;
+    }
+
+    pub fn trade(&mut self, address: String, outcome_id: usize, shares: f64) {
+        match self.portfolios.get_mut(&address) {
+            None => return,
+            Some(portfolio) => {
+                let cost = self.market_maker.cost_to_trade(outcome_id, shares);
+                if portfolio.collateral >= cost {
+                    portfolio.outcome_shares[outcome_id] += shares;
+                    portfolio.collateral -= cost;
+                    self.market_maker.trade(outcome_id, shares);
+                } else {
+                    return;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -167,13 +200,67 @@ mod tests {
 
     #[test]
     fn trade_works_on_mm() {
-        let market_maker = MarketMaker::new(100.0, 2);
+        let mut market_maker = MarketMaker::new(100.0, 2);
         let trade_size = 10.0;
 
-        let market_maker = market_maker.trade(0, trade_size);
+        market_maker.trade(0, trade_size);
 
         let result = market_maker.outstanding_shares[0];
 
         assert_within_epsilon(result, trade_size);
+    }
+
+    #[test]
+    fn market_can_be_created() {
+        let market = Market::new(100.0, 2);
+
+        assert_eq!(market.market_maker.b, 100.0);
+    }
+
+    #[test]
+    fn market_allows_adding_collateral() {
+        let mut market = Market::new(100.0, 2);
+        let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
+
+        market.add_collateral(String::from(address), 100.0);
+
+        let result = market.portfolios[&String::from(address)].collateral;
+
+        assert_eq!(result, 100.0);
+    }
+
+    #[test]
+    fn market_allows_trades() {
+        let mut market = Market::new(100.0, 2);
+        let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
+        let shares = 10.0;
+
+        market.add_collateral(String::from(address), 20.0);
+        market.trade(String::from(address), 1, shares);
+
+        let portfolio = &market.portfolios[&String::from(address)];
+        let final_shares = portfolio.outcome_shares[1];
+        assert_eq!(final_shares, shares);
+
+        let final_collateral = portfolio.collateral;
+        let expected_collateral = 20.0 - 5.124947;
+        assert_within_epsilon(final_collateral, expected_collateral);
+    }
+
+    #[test]
+    fn insufficient_collateral_noops() {
+        let mut market = Market::new(100.0, 2);
+        let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
+        let shares = 10.0;
+
+        market.add_collateral(String::from(address), 4.0);
+        market.trade(String::from(address), 1, shares);
+
+        let portfolio = &market.portfolios[&String::from(address)];
+        let final_shares = portfolio.outcome_shares[1];
+        assert_eq!(final_shares, 0.0);
+
+        let final_collateral = portfolio.collateral;
+        assert_within_epsilon(final_collateral, 4.0);
     }
 }
