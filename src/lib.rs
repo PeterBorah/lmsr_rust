@@ -92,7 +92,9 @@ impl Market {
         }
     }
 
-    pub fn trade_with_max_price(&mut self, address: String, outcome_id: usize, shares: f64, max_price: f64) {
+    pub fn buy_with_max_price(&mut self, address: String, outcome_id: usize, shares: f64, max_price: f64) {
+        if shares < 0.0 { return };
+
         let shares_to_max = self.market_maker.shares_to_set_price(outcome_id, max_price);
         if shares_to_max < shares {
             self.trade(address, outcome_id, shares_to_max);
@@ -273,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    fn orders_with_max_price_work() {
+    fn buy_with_max_price_works() {
         let mut market = Market::new(100.0, 2);
         let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
         let shares = 1000.0;
@@ -281,7 +283,7 @@ mod tests {
         let outcome_id = 0;
 
         market.add_collateral(String::from(address), 10000.0);
-        market.trade_with_max_price(String::from(address), outcome_id, shares, max_price);
+        market.buy_with_max_price(String::from(address), outcome_id, shares, max_price);
 
         let price = market.market_maker.price(outcome_id);
         assert_within_epsilon(price, max_price);
@@ -292,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn orders_with_max_price_work_if_max_price_not_hit() {
+    fn buy_with_max_price_works_if_max_price_not_hit() {
         let mut market = Market::new(100.0, 2);
         let address = "0x6891Ac4E2EF3dA9bc88C96fEDbC9eA4d6D88F768";
         let shares = 1.0;
@@ -300,7 +302,7 @@ mod tests {
         let outcome_id = 0;
 
         market.add_collateral(String::from(address), 10000.0);
-        market.trade_with_max_price(String::from(address), outcome_id, shares, max_price);
+        market.buy_with_max_price(String::from(address), outcome_id, shares, max_price);
 
         let price = market.market_maker.price(outcome_id);
         assert!(price < max_price);
